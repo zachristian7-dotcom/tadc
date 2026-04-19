@@ -1,0 +1,1642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gucko: Reality Drift Circus</title>
+  <style>
+    :root {
+      --bg: #0f0a18;
+      --ink: #f7f3ff;
+      --muted: #baafd1;
+      --accent: #ff2e86;
+      --good: #78ffaa;
+      --warn: #ffcd74;
+      --bad: #ff4e78;
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 30% 20%, #2a1544 0%, #09070f 70%);
+      color: var(--ink);
+    }
+
+    #app {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #gameWrap {
+      position: relative;
+      width: min(96vw, 1240px);
+      height: min(74vw, 790px);
+      max-height: 90vh;
+      aspect-ratio: 16 / 10;
+      border: 2px solid #4a2d6e;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #090713;
+      box-shadow: 0 0 48px rgba(255, 46, 134, 0.22), inset 0 0 30px rgba(255, 255, 255, 0.06);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+
+    .panel {
+      position: absolute;
+      border: 1px solid #644487;
+      border-radius: 10px;
+      background: rgba(11, 9, 17, 0.78);
+      backdrop-filter: blur(4px);
+      box-shadow: 0 8px 14px rgba(0, 0, 0, 0.28);
+      padding: 10px 12px;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    #hud {
+      left: 12px;
+      top: 12px;
+      width: min(450px, calc(100% - 24px));
+    }
+
+    #sidePanel {
+      right: 12px;
+      top: 12px;
+      width: 260px;
+      padding: 8px;
+    }
+
+    #miniMap {
+      width: 100%;
+      height: 132px;
+      display: block;
+      border: 1px solid #72559b;
+      border-radius: 8px;
+      background: #0c0a13;
+      margin-bottom: 8px;
+    }
+
+    .label {
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #sanityBar {
+      margin: 6px 0 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid #63478a;
+      background: #2a1f3f;
+      height: 9px;
+    }
+
+    #sanityFill {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--bad), var(--warn), var(--good));
+      transform-origin: left;
+      transition: transform 120ms linear;
+    }
+
+    #dialogueBox {
+      left: 50%;
+      bottom: 12px;
+      transform: translateX(-50%);
+      width: min(900px, calc(100% - 24px));
+      min-height: 130px;
+      pointer-events: none;
+    }
+
+    #speaker {
+      min-height: 1.2em;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    #dialogueText {
+      min-height: 2.7em;
+      margin-bottom: 8px;
+    }
+
+    #hintLine {
+      color: #d9cee9;
+      font-size: 12px;
+    }
+
+    #chatBox {
+      position: absolute;
+      left: 50%;
+      bottom: 150px;
+      transform: translateX(-50%);
+      width: min(900px, calc(100% - 24px));
+      border-radius: 10px;
+      border: 1px solid #7851aa;
+      background: rgba(9, 7, 15, 0.92);
+      padding: 10px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #chatBox.active { display: flex; }
+
+    #chatInput,
+    .tinyInput {
+      border-radius: 6px;
+      border: 1px solid #8560b6;
+      background: #130f1e;
+      color: #fff;
+      padding: 7px 8px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    #chatInput { flex: 1; }
+
+    .btn {
+      border-radius: 7px;
+      border: 1px solid #a475d7;
+      color: #fff;
+      background: linear-gradient(180deg, #5e2f94, #3d1f60);
+      padding: 7px 11px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    #apiPanel {
+      margin-top: 8px;
+      border-top: 1px dashed #745f96;
+      padding-top: 8px;
+      display: grid;
+      gap: 6px;
+    }
+
+    #eventFeed {
+      max-height: 92px;
+      overflow: auto;
+      font-size: 12px;
+      margin-top: 6px;
+      color: #d6c7ec;
+    }
+
+    #tips {
+      color: #dbcff0;
+      font-size: 13px;
+      opacity: 0.9;
+    }
+
+    .ui-glitch {
+      animation: glitchUi 95ms step-end infinite;
+    }
+
+    @keyframes glitchUi {
+      0% { filter: hue-rotate(0deg) contrast(1); }
+      50% { filter: hue-rotate(16deg) contrast(1.12); }
+      100% { filter: hue-rotate(-13deg) contrast(0.95); }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="gameWrap">
+      <canvas id="gameCanvas" width="1280" height="800"></canvas>
+
+      <div id="hud" class="panel">
+        <div class="row"><span class="label">Sanity</span><span id="sanityValue">100</span></div>
+        <div id="sanityBar"><div id="sanityFill"></div></div>
+        <div class="row"><span class="label">Day Progress</span><span id="timeValue">0%</span></div>
+        <div class="row"><span class="label">Reality Drift</span><span id="driftValue">0%</span></div>
+        <div class="row"><span class="label">Region</span><span id="regionValue">Circus Lobby</span></div>
+        <div class="row"><span class="label">Adventure</span><span id="adventureType">None</span></div>
+        <div id="adventureValue">Talk to Caine for assignment.</div>
+        <div id="relationshipSummary" style="margin-top:8px;font-size:12px;"></div>
+        <div id="eventFeed"></div>
+      </div>
+
+      <div id="sidePanel" class="panel">
+        <div class="label">Map + System</div>
+        <canvas id="miniMap" width="260" height="132"></canvas>
+        <div style="font-size:12px;color:#d7c9eb;">World mutates with sanity and time.</div>
+
+        <div id="apiPanel">
+          <div class="label">AI Dialogue API (optional)</div>
+          <input id="apiEndpoint" class="tinyInput" placeholder="Endpoint (e.g. https://api.openai.com/v1/chat/completions)" />
+          <input id="apiModel" class="tinyInput" placeholder="Model name" />
+          <input id="apiKey" class="tinyInput" placeholder="API key" type="password" />
+          <button id="saveApiBtn" class="btn">Save API Settings</button>
+          <div id="apiStatus" style="font-size:12px;color:#cfbee8;">Using local dialogue synthesis.</div>
+        </div>
+      </div>
+
+      <div id="chatBox">
+        <span class="label">Say</span>
+        <input id="chatInput" maxlength="220" placeholder="Type your message to nearby character..." />
+        <button id="sendBtn" class="btn">Send</button>
+      </div>
+
+      <div id="dialogueBox" class="panel">
+        <div id="speaker"></div>
+        <div id="dialogueText"></div>
+        <div id="hintLine">Z: interact/chat toggle • Enter: send • Esc: close chat.</div>
+      </div>
+    </div>
+    <div id="tips">Arrows: Move • Z: Interact • World drift and sanity alter truth, controls, and map structure.</div>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const SAVE_KEY = "gucko_reality_drift_save_v3";
+      const SETTINGS_KEY = "gucko_ai_settings_v1";
+      const WORLD = { width: 4600, height: 3200 };
+      const DAY_DURATION_MS = 5 * 60 * 1000;
+
+      const rand = (a, b) => a + Math.random() * (b - a);
+      const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+      const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+      const state = {
+        timeMs: 0,
+        dayProgress: 0,
+        sanity: 100,
+        drift: 0,
+        driftSeed: Math.random() * 10000,
+        truthiness: 1,
+        inputLagQueue: [],
+        controlFlipUntil: 0,
+        conversation: {
+          activeNpcId: null,
+          requestInFlight: false,
+          inversionPhaseUntil: 0
+        },
+        player: {
+          name: "Gucko",
+          x: 980,
+          y: 1580,
+          vx: 0,
+          vy: 0,
+          speed: 340,
+          radius: 20,
+          abstracted: false
+        },
+        camera: { x: 0, y: 0, shake: 0 },
+        rooms: [],
+        corridors: [],
+        roomLinks: [],
+        npcs: [],
+        glitches: [],
+        adventure: null,
+        events: [],
+        keys: {},
+        interactPressed: false,
+        memory: {
+          globalInteractions: 0,
+          playerChoices: { rebellious: 0, supportive: 0, existential: 0 },
+          npc: {}
+        },
+        dialogue: {
+          speaker: "",
+          fullText: "",
+          shownText: "",
+          timer: 0,
+          charsPerSec: 68,
+          active: false
+        },
+        ai: {
+          endpoint: "",
+          model: "",
+          apiKey: ""
+        },
+        lastSaveMs: 0,
+        lastEventRollMs: 0,
+      };
+
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      const miniCanvas = document.getElementById("miniMap");
+      const miniCtx = miniCanvas.getContext("2d");
+      const gameWrap = document.getElementById("gameWrap");
+
+      const ui = {
+        sanityValue: document.getElementById("sanityValue"),
+        sanityFill: document.getElementById("sanityFill"),
+        timeValue: document.getElementById("timeValue"),
+        driftValue: document.getElementById("driftValue"),
+        regionValue: document.getElementById("regionValue"),
+        adventureType: document.getElementById("adventureType"),
+        adventureValue: document.getElementById("adventureValue"),
+        relationshipSummary: document.getElementById("relationshipSummary"),
+        eventFeed: document.getElementById("eventFeed"),
+        speaker: document.getElementById("speaker"),
+        dialogueText: document.getElementById("dialogueText"),
+        hintLine: document.getElementById("hintLine"),
+        chatBox: document.getElementById("chatBox"),
+        chatInput: document.getElementById("chatInput"),
+        sendBtn: document.getElementById("sendBtn"),
+        apiEndpoint: document.getElementById("apiEndpoint"),
+        apiModel: document.getElementById("apiModel"),
+        apiKey: document.getElementById("apiKey"),
+        saveApiBtn: document.getElementById("saveApiBtn"),
+        apiStatus: document.getElementById("apiStatus")
+      };
+
+      function pushEvent(message) {
+        state.events.unshift({ t: state.timeMs, message });
+        if (state.events.length > 12) state.events.pop();
+      }
+
+      function createWorld() {
+        state.rooms = [
+          mkRoom("circusLobby", "Circus Lobby", 690, 1320, 1400, 980, "#281747", ["spawn", "safe"]),
+          mkRoom("mainEntrance", "Main Entrance", 1280, 1020, 350, 260, "#223054", ["hall"]),
+          mkRoom("sittingArea", "Sitting Area", 1060, 1560, 280, 230, "#304026", ["social"]),
+          mkRoom("smallTent", "Small Tent", 1420, 1510, 330, 300, "#3c2d1d", ["quest"]),
+          mkRoom("mysteryDoors", "Mystery Doors", 360, 1420, 240, 760, "#472538", ["hidden"]),
+          mkRoom("adminZone", "Administration Zone", 430, 560, 790, 590, "#2d3b1f", ["admin"]),
+          mkRoom("attentionVault", "Caine's Attention Vault", 1360, 360, 950, 540, "#45341e", ["vault"]),
+          mkRoom("pod1", "Stasis Pod 1", 2420, 270, 310, 320, "#2f2f51", ["pods"]),
+          mkRoom("pod2", "Stasis Pod 2", 2780, 270, 310, 320, "#37395b", ["pods"]),
+          mkRoom("pod3", "Stasis Pod 3", 3140, 270, 310, 320, "#40436b", ["pods"]),
+          mkRoom("echoHall", "Echo Hall", 2120, 1020, 900, 660, "#1f2d4b", ["hall", "mystery"]),
+          mkRoom("voidSeam", "Void Seam", 2450, 1780, 1150, 980, "#151824", ["void", "glitch"])
+        ];
+
+        state.corridors = [
+          { x: 920, y: 1070, w: 980, h: 180, enabled: true },
+          { x: 1880, y: 560, w: 540, h: 130, enabled: true },
+          { x: 2330, y: 390, w: 890, h: 90, enabled: true },
+          { x: 1970, y: 1170, w: 280, h: 440, enabled: true },
+          { x: 600, y: 1560, w: 80, h: 180, enabled: true },
+          { x: 2200, y: 1600, w: 360, h: 100, enabled: true }
+        ];
+
+        state.roomLinks = [
+          ["circusLobby", "mainEntrance"],
+          ["circusLobby", "sittingArea"],
+          ["circusLobby", "smallTent"],
+          ["circusLobby", "mysteryDoors"],
+          ["mainEntrance", "attentionVault"],
+          ["attentionVault", "pod1"],
+          ["pod1", "pod2"],
+          ["pod2", "pod3"],
+          ["circusLobby", "echoHall"],
+          ["echoHall", "voidSeam"]
+        ];
+      }
+
+      function mkRoom(id, name, x, y, w, h, color, tags) {
+        return { id, name, x, y, w, h, baseX: x, baseY: y, baseW: w, baseH: h, color, tags, reachable: true };
+      }
+
+      function roomAt(x, y) {
+        return state.rooms.find((r) => r.reachable && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) || null;
+      }
+
+      function randomPointInRoom(id, pad = 50) {
+        const room = state.rooms.find((r) => r.id === id && r.reachable) || state.rooms.find((r) => r.reachable) || state.rooms[0];
+        return { x: rand(room.x + pad, room.x + room.w - pad), y: rand(room.y + pad, room.y + room.h - pad) };
+      }
+
+      function seedNPCs() {
+        const specs = [
+          profile("caine", "Caine", "#ffe27f", "circusLobby", {
+            core: "host-controller",
+            style: ["theatrical", "cheerful", "directive"],
+            hidden: ["knows instability", "redirects existential topics"],
+            authority: 0.95, empathy: 0.56, chaos: 0.35
+          }),
+          profile("jax", "Jax", "#b67dff", "echoHall", {
+            core: "chaos-operator",
+            style: ["sarcastic", "rebellious", "lazy-cunning"],
+            hidden: ["observant", "boundary-tester"],
+            authority: 0.2, empathy: 0.28, chaos: 0.92
+          }),
+          profile("pomni", "Pomni", "#7af4ff", "smallTent", {
+            core: "anxiety-anchor",
+            style: ["nervous", "reactive", "searching"],
+            hidden: ["sees inconsistencies first"],
+            authority: 0.36, empathy: 0.9, chaos: 0.64
+          }),
+          profile("ragatha", "Ragatha", "#ff9f8e", "mainEntrance", {
+            core: "emotional-stabilizer",
+            style: ["kind", "nurturing", "grounding"],
+            hidden: ["quietly exhausted", "fear of abandonment"],
+            authority: 0.62, empathy: 0.95, chaos: 0.33
+          }),
+          profile("kinger", "Kinger", "#ffd184", "mysteryDoors", {
+            core: "fragmented-thinker",
+            style: ["abstract", "forgetful", "cryptic"],
+            hidden: ["remembers before states"],
+            authority: 0.42, empathy: 0.67, chaos: 0.94
+          }),
+          profile("gangle", "Gangle", "#ff8cd5", "sittingArea", {
+            core: "emotion-mask-system",
+            style: ["soft", "fragile", "avoidant"],
+            hidden: ["identity instability"],
+            authority: 0.29, empathy: 0.93, chaos: 0.58
+          }),
+          profile("zooble", "Zooble", "#9bff8b", "adminZone", {
+            core: "modular-survivor",
+            style: ["dry", "practical", "fragmented"],
+            hidden: ["adapts identity"],
+            authority: 0.64, empathy: 0.44, chaos: 0.72
+          })
+        ];
+
+        state.npcs = specs.map((spec) => createNPC(spec));
+      }
+
+      function profile(id, name, color, homeRoom, personality) {
+        return { id, name, color, homeRoom, personality };
+      }
+
+      function createNPC(spec) {
+        const mem = state.memory.npc[spec.id] || {
+          talks: 0,
+          trust: 0.5,
+          fear: 0.12,
+          relationship: 0,
+          memoryLog: [],
+          mode: "baseline",
+          identityShifted: false
+        };
+        state.memory.npc[spec.id] = mem;
+        const pt = randomPointInRoom(spec.homeRoom);
+
+        return {
+          ...spec,
+          x: pt.x,
+          y: pt.y,
+          vx: 0,
+          vy: 0,
+          speed: rand(56, 95),
+          radius: 18,
+          mood: "stable",
+          roamTarget: null,
+          roamTimer: 0,
+          talkCooldown: 0,
+          memory: mem
+        };
+      }
+
+      function updateNPCs(dt) {
+        for (const npc of state.npcs) {
+          const s = state.sanity;
+          npc.mood = s > 70 ? "stable" : s > 40 ? "strained" : s > 0 ? "fractured" : "symbolic";
+
+          if (npc.id === "pomni") {
+            npc.mood = s > 70 ? "cautious" : s > 40 ? "paranoid" : s > 0 ? "panic" : "dissociated";
+          }
+          if (npc.id === "caine") {
+            npc.mood = s > 70 ? "guide" : s > 40 ? "strict" : s > 0 ? "looping" : "broken-host";
+          }
+
+          const fearFactor = npc.memory.fear;
+          npc.speed = clamp(58 + npc.personality.chaos * 46 + fearFactor * 40, 50, 145);
+
+          npc.talkCooldown = Math.max(0, npc.talkCooldown - dt);
+          npc.roamTimer -= dt;
+
+          if (!npc.roamTarget || npc.roamTimer <= 0 || Math.random() < 0.006 + state.drift * 0.01) {
+            let roomChoices = [npc.homeRoom, "circusLobby", "echoHall", "mainEntrance"];
+            if (state.sanity < 45) roomChoices.push("voidSeam", "mysteryDoors");
+            if (npc.id === "jax" && Math.random() < 0.35) roomChoices.push("adminZone", "voidSeam");
+            if (npc.id === "ragatha" && npc.memory.fear > 0.5) roomChoices = ["mainEntrance", "sittingArea"];
+
+            npc.roamTarget = randomPointInRoom(pick(roomChoices));
+            npc.roamTimer = rand(2.5, 6.8);
+          }
+
+          const dx = npc.roamTarget.x - npc.x;
+          const dy = npc.roamTarget.y - npc.y;
+          const d = Math.hypot(dx, dy);
+          if (d > 6) {
+            npc.vx = (dx / d) * npc.speed;
+            npc.vy = (dy / d) * npc.speed;
+            npc.x += npc.vx * dt;
+            npc.y += npc.vy * dt;
+          }
+
+          keepEntityInWorld(npc);
+
+          // Relationship-influenced behavior (avoidance / approach)
+          const pd = dist(state.player, npc);
+          if (npc.memory.relationship < -0.35 && pd < 150) {
+            npc.x += (npc.x - state.player.x) * 0.012;
+            npc.y += (npc.y - state.player.y) * 0.012;
+          } else if (npc.memory.relationship > 0.45 && pd > 180 && Math.random() < 0.002) {
+            npc.roamTarget = { x: state.player.x + rand(-100, 100), y: state.player.y + rand(-100, 100) };
+          }
+        }
+      }
+
+      function generateAdventure() {
+        const types = ["Exploration Anomaly", "Glitch Repair", "Character Quest", "Reality Stabilization", "Impossible Objective"];
+        const type = pick(types);
+        const room = pick(state.rooms.filter((r) => r.reachable && !r.tags.includes("spawn")));
+
+        const adv = {
+          id: `adv_${Math.floor(rand(1000, 9999))}`,
+          type,
+          targetRoom: room.id,
+          targetName: room.name,
+          objective: "",
+          contradiction: "",
+          completed: false,
+          reward: rand(7, 16),
+          marker: null,
+          condition: null
+        };
+
+        if (type === "Exploration Anomaly") {
+          adv.objective = `Enter ${room.name} and document the first anomaly pulse.`;
+          adv.contradiction = "Do not enter any unstable room.";
+          adv.condition = () => {
+            const r = roomAt(state.player.x, state.player.y);
+            return r && r.id === room.id;
+          };
+        } else if (type === "Glitch Repair") {
+          adv.marker = spawnGlitch(room.id, true);
+          adv.objective = `Patch the fracture node in ${room.name}.`;
+          adv.contradiction = "Preserve all active glitches for analysis.";
+          adv.condition = () => adv.marker && adv.marker.fixed;
+        } else if (type === "Character Quest") {
+          const npc = pick(state.npcs.filter((n) => n.id !== "caine"));
+          adv.targetNpcId = npc.id;
+          adv.requiredTone = pick(["support", "calm", "truth", "joke"]);
+          adv.objective = `Speak with ${npc.name} and project '${adv.requiredTone}'.`;
+          adv.contradiction = `Avoid contacting ${npc.name} during this cycle.`;
+          adv.condition = () => {
+            const mem = state.memory.npc[npc.id];
+            return mem && mem.memoryLog.some((m) => m.tags.includes(adv.requiredTone));
+          };
+        } else if (type === "Reality Stabilization") {
+          adv.objective = `Remain in ${room.name} for 30 seconds while drift is above ${Math.max(20, Math.floor(state.drift * 100))}%.`;
+          adv.contradiction = "Leave immediately if reality begins to hum.";
+          adv.until = state.timeMs + 30000;
+          adv.condition = () => {
+            const r = roomAt(state.player.x, state.player.y);
+            return r && r.id === room.id && state.timeMs >= adv.until;
+          };
+        } else {
+          adv.objective = `Reach ${room.name} and simultaneously stay in Circus Lobby.`;
+          adv.contradiction = "Both must be true at once.";
+          adv.condition = () => false;
+          adv.reward = rand(15, 24);
+        }
+
+        state.adventure = adv;
+        updateAdventureUI();
+        saveGame();
+        return adv;
+      }
+
+      function completeAdventure() {
+        if (!state.adventure || state.adventure.completed) return;
+        state.adventure.completed = true;
+        applySanity(state.adventure.reward);
+        pushEvent(`Adventure resolved: ${state.adventure.type}`);
+        showDialogue("System", `Adventure complete: ${state.adventure.objective} (+${Math.floor(state.adventure.reward)} sanity)`);
+        updateAdventureUI();
+        saveGame();
+      }
+
+      function updateAdventure() {
+        if (!state.adventure || state.adventure.completed) return;
+        if (state.adventure.type === "Impossible Objective") return;
+
+        if (state.adventure.type === "Glitch Repair" && state.adventure.marker && state.adventure.marker.fixed) {
+          completeAdventure();
+          return;
+        }
+
+        if (state.adventure.condition && state.adventure.condition()) {
+          completeAdventure();
+        }
+      }
+
+      function spawnGlitch(roomId, fromAdventure = false) {
+        const pt = randomPointInRoom(roomId);
+        const glitch = {
+          id: `gl_${Math.floor(rand(10000, 99999))}`,
+          x: pt.x,
+          y: pt.y,
+          radius: rand(16, 34),
+          severity: rand(0.8, 2.4),
+          fixed: false,
+          fromAdventure,
+          createdAt: state.timeMs
+        };
+        state.glitches.push(glitch);
+        return glitch;
+      }
+
+      function updateGlitches(dt) {
+        if (state.sanity < 45 && state.glitches.length < 10 && Math.random() < 0.02 + state.drift * 0.015) {
+          const room = pick(state.rooms.filter((r) => r.reachable && (r.tags.includes("void") || r.tags.includes("mystery") || r.tags.includes("pods"))));
+          spawnGlitch(room.id);
+        }
+
+        for (const g of state.glitches) {
+          if (g.fixed) continue;
+          const d = Math.hypot(state.player.x - g.x, state.player.y - g.y);
+          if (!state.player.abstracted && d < g.radius + 24) {
+            applySanity(-0.6 * g.severity * dt * 60);
+          }
+          if (state.interactPressed && d < g.radius + 30) {
+            g.fixed = true;
+            applySanity(2.8);
+            pushEvent("Glitch patched, but ripple echoes remain.");
+            showDialogue("System", "Fracture stitched. Geometry remains suspicious.");
+          }
+        }
+
+        state.glitches = state.glitches.filter((g) => !g.fixed || state.timeMs - g.createdAt < 2200);
+      }
+
+      function applySanity(delta) {
+        state.sanity = clamp(state.sanity + delta, 0, 100);
+        if (state.sanity <= 0 && !state.player.abstracted) triggerAbstraction();
+      }
+
+      function triggerAbstraction() {
+        state.player.abstracted = true;
+        state.player.vx = 0;
+        state.player.vy = 0;
+        state.conversation.activeNpcId = null;
+        ui.chatBox.classList.remove("active");
+        pushEvent("ABSTRACTION: identity checksum failed.");
+        showDialogue("Circus Kernel", "ABSTRACTION ACTIVE :: body optional :: meaning fragmented");
+      }
+
+      function updateTime(dtMs) {
+        state.timeMs += dtMs;
+        state.dayProgress = (state.timeMs % DAY_DURATION_MS) / DAY_DURATION_MS;
+
+        const choiceWeight = state.memory.playerChoices.rebellious * 0.001 + state.memory.playerChoices.existential * 0.0012;
+        state.drift = clamp(state.drift + (dtMs / 1000) * (0.0005 + choiceWeight + ((100 - state.sanity) / 100) * 0.0009), 0, 1);
+        state.truthiness = clamp(1 - state.drift * 0.55 - (state.sanity < 40 ? 0.22 : 0), 0.25, 1);
+
+        let drain = 0.11 + (state.sanity < 40 ? 0.16 : 0) + state.drift * 0.08;
+        if (state.adventure && state.adventure.type === "Impossible Objective") drain += 0.04;
+        applySanity(-drain * dtMs / 1000);
+      }
+
+      // -------- Reality Drift + rare world manipulation events --------
+      function applyRealityDrift(dt) {
+        const t = state.timeMs / 1000;
+        const driftMag = state.drift * 130;
+
+        for (const room of state.rooms) {
+          const nx = Math.sin((t * 0.08) + room.baseX * 0.0009 + state.driftSeed);
+          const ny = Math.cos((t * 0.07) + room.baseY * 0.0011 + state.driftSeed * 0.5);
+          room.x = clamp(room.baseX + nx * driftMag, 80, WORLD.width - room.baseW - 80);
+          room.y = clamp(room.baseY + ny * driftMag, 80, WORLD.height - room.baseH - 80);
+
+          const sizePulse = (state.sanity < 45 ? 0.14 : 0.05) * Math.sin(t * 0.3 + room.baseX * 0.001);
+          room.w = clamp(room.baseW * (1 + sizePulse * state.drift), room.baseW * 0.82, room.baseW * 1.18);
+          room.h = clamp(room.baseH * (1 + sizePulse * state.drift), room.baseH * 0.82, room.baseH * 1.18);
+
+          room.reachable = !(state.drift > 0.68 && Math.random() < 0.0015 && !room.tags.includes("spawn"));
+        }
+
+        for (const c of state.corridors) {
+          if (state.drift > 0.52 && Math.random() < 0.0013) c.enabled = !c.enabled;
+          if (state.drift < 0.25) c.enabled = true;
+        }
+
+        if (state.timeMs - state.lastEventRollMs > 6000) {
+          state.lastEventRollMs = state.timeMs;
+          rollRareEvent();
+        }
+      }
+
+      function rollRareEvent() {
+        const rarity = 0.025 + state.drift * 0.05;
+        if (Math.random() > rarity) return;
+
+        const event = pick([
+          "roomRearrangement",
+          "npcIdentityShift",
+          "timeLoopMicro",
+          "mapCorruption",
+          "dialogueInversion"
+        ]);
+
+        if (event === "roomRearrangement") {
+          const candidates = state.rooms.filter((r) => !r.tags.includes("spawn")).sort(() => Math.random() - 0.5).slice(0, 2);
+          if (candidates.length === 2) {
+            const [a, b] = candidates;
+            [a.baseX, b.baseX] = [b.baseX, a.baseX];
+            [a.baseY, b.baseY] = [b.baseY, a.baseY];
+            pushEvent(`Event: room rearrangement (${a.name} ↔ ${b.name})`);
+          }
+        }
+
+        if (event === "npcIdentityShift") {
+          const a = pick(state.npcs);
+          const b = pick(state.npcs.filter((n) => n !== a));
+          const tmpName = a.name;
+          a.name = b.name;
+          b.name = tmpName;
+          const tmpColor = a.color;
+          a.color = b.color;
+          b.color = tmpColor;
+          a.memory.identityShifted = true;
+          b.memory.identityShifted = true;
+          pushEvent("Event: NPC identity shift detected.");
+        }
+
+        if (event === "timeLoopMicro") {
+          state.timeMs = Math.max(0, state.timeMs - rand(7000, 17000));
+          pushEvent("Event: Time loop micro-event. A minute repeated itself.");
+        }
+
+        if (event === "mapCorruption") {
+          for (const room of state.rooms) {
+            if (Math.random() < 0.3 && !room.tags.includes("spawn")) room.reachable = !room.reachable;
+          }
+          pushEvent("Event: Map corruption burst. Paths changed.");
+        }
+
+        if (event === "dialogueInversion") {
+          state.conversation.inversionPhaseUntil = state.timeMs + rand(15000, 30000);
+          pushEvent("Event: Dialogue inversion phase active.");
+        }
+      }
+
+      // -------- Input and gameplay inconsistency layers --------
+      function updatePlayer(dt) {
+        if (state.player.abstracted) {
+          // Limited movement in abstraction: slow drift only.
+          state.player.vx = Math.sin(state.timeMs * 0.002) * 12;
+          state.player.vy = Math.cos(state.timeMs * 0.0022) * 12;
+          state.player.x += state.player.vx * dt;
+          state.player.y += state.player.vy * dt;
+          keepEntityInWorld(state.player);
+          return;
+        }
+
+        if (state.conversation.activeNpcId) {
+          state.player.vx = 0;
+          state.player.vy = 0;
+          return;
+        }
+
+        let xIn = (state.keys.arrowright ? 1 : 0) - (state.keys.arrowleft ? 1 : 0);
+        let yIn = (state.keys.arrowdown ? 1 : 0) - (state.keys.arrowup ? 1 : 0);
+
+        // Control inconsistencies at low sanity.
+        if (state.sanity < 38 && Math.random() < 0.002) {
+          state.controlFlipUntil = state.timeMs + rand(700, 1800);
+        }
+        if (state.timeMs < state.controlFlipUntil) {
+          xIn *= -1;
+          yIn *= -1;
+        }
+
+        const lagFactor = state.sanity < 45 ? (45 - state.sanity) / 45 : 0;
+        if (lagFactor > 0.02) {
+          state.inputLagQueue.push({ xIn, yIn, t: state.timeMs });
+          const delay = 30 + lagFactor * 180;
+          const delayed = state.inputLagQueue.find((i) => state.timeMs - i.t >= delay) || state.inputLagQueue[0];
+          xIn = delayed ? delayed.xIn : xIn;
+          yIn = delayed ? delayed.yIn : yIn;
+          if (state.inputLagQueue.length > 30) state.inputLagQueue.shift();
+        }
+
+        const mag = Math.hypot(xIn, yIn) || 1;
+        state.player.vx = (xIn / mag) * state.player.speed;
+        state.player.vy = (yIn / mag) * state.player.speed;
+
+        state.player.x += state.player.vx * dt;
+        state.player.y += state.player.vy * dt;
+        keepEntityInWorld(state.player);
+      }
+
+      function keepEntityInWorld(e) {
+        e.x = clamp(e.x, e.radius, WORLD.width - e.radius);
+        e.y = clamp(e.y, e.radius, WORLD.height - e.radius);
+      }
+
+      // -------- Relationship system --------
+      function updateRelationshipFromMessage(npc, text) {
+        const t = text.toLowerCase();
+        const positive = (t.match(/(thanks|help|sorry|trust|friend|care|calm|safe|please)/g) || []).length;
+        const negative = (t.match(/(hate|lie|shut up|broken|stupid|void|panic|never)/g) || []).length;
+        const existential = /(real|reality|escape|why are we here|outside|who made this)/.test(t);
+        const rebellious = /(break|hack|exploit|ignore rules|skip task|chaos)/.test(t);
+
+        npc.memory.relationship = clamp(npc.memory.relationship + (positive - negative) * 0.08, -1, 1);
+        npc.memory.trust = clamp(npc.memory.trust + positive * 0.04 - negative * 0.05, 0, 1);
+        npc.memory.fear = clamp(npc.memory.fear + negative * 0.05 + (state.sanity < 35 ? 0.02 : 0) - positive * 0.02, 0, 1);
+
+        const tags = [];
+        if (positive > negative) tags.push("support");
+        if (negative > positive) tags.push("hostile");
+        if (existential) tags.push("existential");
+        if (rebellious) tags.push("rebellious");
+        if (!tags.length) tags.push("neutral");
+
+        npc.memory.memoryLog.push({ at: state.timeMs, text: text.slice(0, 120), tags });
+        if (npc.memory.memoryLog.length > 20) npc.memory.memoryLog.shift();
+
+        if (rebellious) state.memory.playerChoices.rebellious += 1;
+        if (existential) state.memory.playerChoices.existential += 1;
+        if (positive > negative) state.memory.playerChoices.supportive += 1;
+      }
+
+      // -------- Dialogue system: AI API hook + local synthesis --------
+      function npcPromptProfile(npc) {
+        const sanityBand = state.sanity > 70 ? "high" : state.sanity > 40 ? "mid" : state.sanity > 0 ? "low" : "critical";
+
+        const relationshipState = npc.memory.relationship > 0.35 ? "friendly" : npc.memory.relationship < -0.25 ? "negative" : "neutral";
+        const memories = npc.memory.memoryLog.slice(-4).map((m) => `${m.tags.join(",")}:${m.text}`).join(" | ");
+
+        return {
+          sanityBand,
+          relationshipState,
+          fear: npc.memory.fear.toFixed(2),
+          trust: npc.memory.trust.toFixed(2),
+          memories,
+        };
+      }
+
+      async function aiDialogue(npc, playerText, context) {
+        if (!state.ai.endpoint || !state.ai.model || !state.ai.apiKey) return null;
+
+        const profile = npcPromptProfile(npc);
+        const system = [
+          "You are generating one NPC line for a top-down immersive circus simulation.",
+          `Character: ${npc.name}. Core: ${npc.personality.core}. Style: ${npc.personality.style.join(", ")}. Hidden: ${npc.personality.hidden.join(", ")}.`,
+          `Sanity band: ${profile.sanityBand}. Relationship: ${profile.relationshipState}. trust=${profile.trust}, fear=${profile.fear}.`,
+          `World drift=${(state.drift * 100).toFixed(1)}%, region=${context.region}, adventure=${context.adventure}.`,
+          "Keep to 2-4 sentences, personality-consistent, immersive, slightly unstable.",
+          "If sanity is low or critical, add subtle reality-breaking hints.",
+          "Never break character."
+        ].join("\n");
+
+        const body = {
+          model: state.ai.model,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: `Player said: ${playerText || "(silence)"}. Recent memory: ${profile.memories || "none"}` }
+          ],
+          temperature: 0.9,
+          max_tokens: 140
+        };
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3200);
+
+        try {
+          const res = await fetch(state.ai.endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${state.ai.apiKey}`
+            },
+            body: JSON.stringify(body),
+            signal: controller.signal
+          });
+
+          clearTimeout(timeout);
+          if (!res.ok) {
+            ui.apiStatus.textContent = `API warning: HTTP ${res.status}. Using local synthesis.`;
+            return null;
+          }
+
+          const data = await res.json();
+          const text = data?.choices?.[0]?.message?.content?.trim();
+          if (!text) return null;
+          ui.apiStatus.textContent = "AI API dialogue active.";
+          return text;
+        } catch (err) {
+          clearTimeout(timeout);
+          ui.apiStatus.textContent = "API unreachable or timed out. Using local synthesis.";
+          return null;
+        }
+      }
+
+      function localDialogue(npc, playerText, context) {
+        const s = state.sanity;
+        const trust = npc.memory.trust;
+        const fear = npc.memory.fear;
+        const rel = npc.memory.relationship;
+
+        const tone = s > 70 ? "stable" : s > 40 ? "strained" : s > 0 ? "fractured" : "symbolic";
+        const relState = rel > 0.35 ? "friendly" : rel < -0.25 ? "hostile" : "neutral";
+
+        let opening = "";
+        let hidden = "";
+        let behavior = "";
+
+        if (npc.id === "caine") {
+          if (tone === "stable") opening = "Marvelous timing, star participant!";
+          else if (tone === "strained") opening = "Let's keep this orderly, shall we?";
+          else if (tone === "fractured") opening = "Rules are comfort, rules are safety, rules are everything.";
+          else opening = "WELCOME WELCOME WELCOME--line reset--WELCOME.";
+          hidden = /real|outside|escape|why/.test(playerText.toLowerCase())
+            ? "That topic is outside today's approved program, so let's redirect to your objective."
+            : "The show remains under control, officially.";
+          behavior = state.adventure && !state.adventure.completed
+            ? `Your assignment remains: ${state.adventure.objective}`
+            : "Ask me for an assignment and I will produce one instantly.";
+        }
+
+        if (npc.id === "jax") {
+          if (tone === "stable") opening = "Nice, you're still in one piece. Boring, but nice.";
+          else if (tone === "strained") opening = "Everything's fake and yet we're still doing chores. Hilarious.";
+          else if (tone === "fractured") opening = "Break the map, break the script, break the smile.";
+          else opening = "...You hear it too, right?";
+          hidden = "I test limits because someone has to.";
+          behavior = relState === "friendly" ? "I can show you a shortcut that probably exists." : "Official objectives are optional unless they entertain me.";
+        }
+
+        if (npc.id === "pomni") {
+          if (tone === "stable") opening = "Okay... okay, I can breathe here.";
+          else if (tone === "strained") opening = "The walls are shifting again, I knew it.";
+          else if (tone === "fractured") opening = "Don't trust the corners. They move when you don't look.";
+          else opening = "I can't tell if you're you anymore.";
+          hidden = "Caine keeps changing explanations when details get specific.";
+          behavior = fear > 0.6 ? "I'm staying near exits." : "I'll warn you if I sense instability spikes.";
+        }
+
+        if (npc.id === "ragatha") {
+          if (tone === "stable") opening = "You're doing okay. One step at a time.";
+          else if (tone === "strained") opening = "I can keep smiling, I think. Just keep moving with me.";
+          else if (tone === "fractured") opening = "I'm trying to hold everyone together and it's... difficult.";
+          else opening = "I still care, even if it feels far away.";
+          hidden = "I get tired too, but I don't want anyone to feel alone.";
+          behavior = relState === "friendly" ? "Stay near me and your mind may steady a little." : "Choose safer routes; we can survive this.";
+        }
+
+        if (npc.id === "kinger") {
+          if (tone === "stable") opening = "I had a thought. I misplaced it. Found a better one.";
+          else if (tone === "strained") opening = "Hallways fold like paper birds; maybe that's useful.";
+          else if (tone === "fractured") opening = "Before this version, pod two was somewhere impossible.";
+          else opening = "Crown, clock, corridor, chorus--same shape.";
+          hidden = "I remember fragments from earlier loops, I think.";
+          behavior = "My advice sounds broken, but sometimes it fits the lock.";
+        }
+
+        if (npc.id === "gangle") {
+          if (tone === "stable") opening = "I'll keep calm. Soft voice, steady breath.";
+          else if (tone === "strained") opening = "I keep switching masks and I don't know which one is me.";
+          else if (tone === "fractured") opening = "Please don't make me choose a face right now.";
+          else opening = "mask? me? echo?";
+          hidden = "Chaos makes my identity slip.";
+          behavior = "I avoid conflict, but I react hard when reality spikes.";
+        }
+
+        if (npc.id === "zooble") {
+          if (tone === "stable") opening = "Operational note: you are still coherent.";
+          else if (tone === "strained") opening = "Structure is failing at non-critical but annoying rates.";
+          else if (tone === "fractured") opening = "Parts misaligned. Function persists.";
+          else opening = "identity module swapped. continue.";
+          hidden = "Adaptation beats denial.";
+          behavior = "If routes collapse, reconfigure and keep moving.";
+        }
+
+        const contextLine = `Region: ${context.region}. Drift ${(state.drift * 100).toFixed(0)}%. Relationship ${relState}, trust ${(trust * 100).toFixed(0)}%, fear ${(fear * 100).toFixed(0)}%.`;
+        let response = `${opening} ${hidden} ${behavior} ${contextLine}`;
+
+        if (state.conversation.inversionPhaseUntil > state.timeMs) {
+          response = response.split("").reverse().join("");
+        }
+
+        if (state.player.abstracted) {
+          response = pick([
+            "◇ signal without face ◇",
+            "name missing // recognition failed //",
+            "you are a silhouette made of instructions"
+          ]);
+        }
+
+        return response;
+      }
+
+      async function generateDialogue(npc, context, playerText = "") {
+        if (state.player.abstracted) {
+          return "◇◇◇ identity unresolved ◇◇◇";
+        }
+
+        const aiText = await aiDialogue(npc, playerText, context);
+        return aiText || localDialogue(npc, playerText, context);
+      }
+
+      // -------- Chat / interaction --------
+      function nearestNPC(max = 90) {
+        let best = Infinity;
+        let target = null;
+        for (const npc of state.npcs) {
+          const d = dist(state.player, npc);
+          if (d < best) {
+            best = d;
+            target = npc;
+          }
+        }
+        return best <= max ? target : null;
+      }
+
+      function openChat(npc) {
+        state.conversation.activeNpcId = npc.id;
+        ui.chatBox.classList.add("active");
+        ui.chatInput.focus();
+        ui.hintLine.textContent = `Talking with ${npc.name}. Enter to send.`;
+      }
+
+      function closeChat() {
+        state.conversation.activeNpcId = null;
+        ui.chatBox.classList.remove("active");
+        ui.chatInput.blur();
+        ui.hintLine.textContent = "Z: interact/chat toggle • Enter: send • Esc: close chat.";
+      }
+
+      function showDialogue(speaker, text) {
+        state.dialogue.speaker = speaker;
+        state.dialogue.fullText = text;
+        state.dialogue.shownText = "";
+        state.dialogue.timer = 0;
+        state.dialogue.active = true;
+        ui.speaker.textContent = speaker;
+      }
+
+      function updateDialogue(dt) {
+        const d = state.dialogue;
+        if (!d.active) return;
+        d.timer += dt * d.charsPerSec;
+        d.shownText = d.fullText.slice(0, Math.floor(d.timer));
+        ui.dialogueText.textContent = d.shownText;
+      }
+
+      async function sendChat() {
+        const text = ui.chatInput.value.trim();
+        if (!text || state.conversation.requestInFlight) return;
+        const npc = state.npcs.find((n) => n.id === state.conversation.activeNpcId);
+        if (!npc) return;
+
+        showDialogue(state.player.name, text);
+        ui.chatInput.value = "";
+
+        updateRelationshipFromMessage(npc, text);
+        state.memory.globalInteractions += 1;
+        npc.talkCooldown = 0.4;
+
+        // NPC behavior hooks
+        if (npc.id === "ragatha" && npc.memory.relationship > 0.2) applySanity(1.2);
+        if (npc.id === "jax" && /(exploit|break|shortcut|secret)/i.test(text)) {
+          const p = randomPointInRoom("mysteryDoors");
+          state.player.x = p.x;
+          state.player.y = p.y;
+          pushEvent("Jax rerouted you through an unintended path.");
+        }
+
+        state.conversation.requestInFlight = true;
+        showDialogue("System", "...thinking...");
+
+        const context = {
+          region: roomAt(state.player.x, state.player.y)?.name || "interstitial seam",
+          adventure: state.adventure ? state.adventure.type : "none",
+          drift: state.drift
+        };
+
+        const reply = await generateDialogue(npc, context, text);
+        state.conversation.requestInFlight = false;
+        showDialogue(npc.name, reply);
+        saveGame();
+
+        if (npc.id === "caine" && (!state.adventure || state.adventure.completed)) {
+          if (/(task|mission|adventure|what now|assignment|objective)/i.test(text)) {
+            const a = generateAdventure();
+            showDialogue("Caine", `New assignment generated. ${a.objective} Contradiction: ${a.contradiction}`);
+          }
+        }
+      }
+
+      function doInteractions() {
+        if (!state.interactPressed) return;
+
+        if (state.player.abstracted) {
+          showDialogue("Silence", "Form detached. Interaction reduced to symbols.");
+          return;
+        }
+
+        const npc = nearestNPC();
+        if (npc) {
+          if (state.conversation.activeNpcId === npc.id) {
+            closeChat();
+            return;
+          }
+          openChat(npc);
+          if (npc.id === "caine" && (!state.adventure || state.adventure.completed)) {
+            const a = generateAdventure();
+            showDialogue("Caine", `Welcome, participant! ${a.objective} Also: ${a.contradiction}`);
+          } else {
+            showDialogue(npc.name, "Speak. I am listening.");
+          }
+          return;
+        }
+
+        for (const g of state.glitches) {
+          if (!g.fixed && Math.hypot(state.player.x - g.x, state.player.y - g.y) < g.radius + 30) {
+            g.fixed = true;
+            applySanity(2.6);
+            showDialogue("System", "Glitch patched. Nearby geometry quivers.");
+            break;
+          }
+        }
+      }
+
+      // -------- Persistence --------
+      function serializeAdventure(a) {
+        if (!a) return null;
+        return { ...a, condition: null, marker: a.marker ? { ...a.marker } : null };
+      }
+
+      function restoreAdventure(saved) {
+        if (!saved) return null;
+        const room = state.rooms.find((r) => r.id === saved.targetRoom);
+        if (!room) return null;
+        const a = { ...saved };
+
+        if (a.type === "Exploration Anomaly") {
+          a.condition = () => {
+            const r = roomAt(state.player.x, state.player.y);
+            return r && r.id === room.id;
+          };
+        } else if (a.type === "Glitch Repair") {
+          if (!a.marker || !state.glitches.find((g) => g.id === a.marker.id)) {
+            a.marker = spawnGlitch(room.id, true);
+          } else {
+            a.marker = state.glitches.find((g) => g.id === a.marker.id);
+          }
+          a.condition = () => a.marker && a.marker.fixed;
+        } else if (a.type === "Character Quest") {
+          a.condition = () => {
+            const mem = state.memory.npc[a.targetNpcId];
+            return mem && mem.memoryLog.some((m) => m.tags.includes(a.requiredTone));
+          };
+        } else if (a.type === "Reality Stabilization") {
+          a.condition = () => {
+            const r = roomAt(state.player.x, state.player.y);
+            return r && r.id === room.id && state.timeMs >= a.until;
+          };
+        } else {
+          a.condition = () => false;
+        }
+
+        return a;
+      }
+
+      function saveGame() {
+        const payload = {
+          timeMs: state.timeMs,
+          sanity: state.sanity,
+          drift: state.drift,
+          driftSeed: state.driftSeed,
+          player: {
+            x: state.player.x,
+            y: state.player.y,
+            abstracted: state.player.abstracted
+          },
+          memory: state.memory,
+          adventure: serializeAdventure(state.adventure),
+          glitches: state.glitches,
+          events: state.events,
+          rooms: state.rooms.map((r) => ({ id: r.id, baseX: r.baseX, baseY: r.baseY, reachable: r.reachable }))
+        };
+
+        localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+        state.lastSaveMs = state.timeMs;
+      }
+
+      function loadGame() {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return;
+
+        try {
+          const data = JSON.parse(raw);
+          if (typeof data.timeMs === "number") state.timeMs = Math.max(0, data.timeMs);
+          if (typeof data.sanity === "number") state.sanity = clamp(data.sanity, 0, 100);
+          if (typeof data.drift === "number") state.drift = clamp(data.drift, 0, 1);
+          if (typeof data.driftSeed === "number") state.driftSeed = data.driftSeed;
+
+          if (data.player) {
+            state.player.x = typeof data.player.x === "number" ? data.player.x : state.player.x;
+            state.player.y = typeof data.player.y === "number" ? data.player.y : state.player.y;
+            state.player.abstracted = !!data.player.abstracted;
+          }
+
+          if (data.memory && typeof data.memory === "object") {
+            state.memory = data.memory;
+            if (!state.memory.npc) state.memory.npc = {};
+            if (!state.memory.playerChoices) state.memory.playerChoices = { rebellious: 0, supportive: 0, existential: 0 };
+          }
+
+          if (Array.isArray(data.glitches)) state.glitches = data.glitches;
+          if (Array.isArray(data.events)) state.events = data.events;
+
+          if (Array.isArray(data.rooms)) {
+            for (const saved of data.rooms) {
+              const room = state.rooms.find((r) => r.id === saved.id);
+              if (!room) continue;
+              if (typeof saved.baseX === "number") room.baseX = saved.baseX;
+              if (typeof saved.baseY === "number") room.baseY = saved.baseY;
+              if (typeof saved.reachable === "boolean") room.reachable = saved.reachable;
+            }
+          }
+
+          state.adventure = restoreAdventure(data.adventure || null);
+        } catch (err) {
+          console.warn("Save parse failed, resetting world.", err);
+        }
+      }
+
+      function loadSettings() {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        if (!raw) return;
+
+        try {
+          const s = JSON.parse(raw);
+          state.ai.endpoint = s.endpoint || "";
+          state.ai.model = s.model || "";
+          state.ai.apiKey = s.apiKey || "";
+        } catch (err) {
+          console.warn("Settings parse failed.", err);
+        }
+      }
+
+      function persistSettings() {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.ai));
+      }
+
+      // -------- Rendering --------
+      function updateCamera(dt) {
+        const tx = clamp(state.player.x - canvas.width / 2, 0, WORLD.width - canvas.width);
+        const ty = clamp(state.player.y - canvas.height / 2, 0, WORLD.height - canvas.height);
+        const smooth = 1 - Math.pow(0.001, dt);
+        state.camera.x = lerp(state.camera.x, tx, smooth);
+        state.camera.y = lerp(state.camera.y, ty, smooth);
+        state.camera.shake = state.sanity < 40 ? ((40 - state.sanity) / 40) * 8 : 0;
+      }
+
+      function drawRoom(room) {
+        if (!room.reachable) return;
+        ctx.fillStyle = room.color;
+        ctx.fillRect(room.x, room.y, room.w, room.h);
+        ctx.strokeStyle = "rgba(255,255,255,0.2)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(room.x, room.y, room.w, room.h);
+        ctx.fillStyle = "rgba(255,255,255,0.72)";
+        ctx.font = "16px Trebuchet MS";
+        ctx.fillText(room.name, room.x + 10, room.y + 22);
+
+        if (state.drift > 0.5 && room.tags.includes("void")) {
+          ctx.fillStyle = "rgba(255, 0, 120, 0.08)";
+          for (let i = 0; i < 8; i++) {
+            ctx.fillRect(room.x + rand(0, room.w), room.y + rand(0, room.h), rand(8, 26), 2);
+          }
+        }
+      }
+
+      function drawCorridor(c) {
+        if (!c.enabled) return;
+        ctx.fillStyle = "#1b1d31";
+        ctx.fillRect(c.x, c.y, c.w, c.h);
+        ctx.strokeStyle = "rgba(174,182,255,0.22)";
+        ctx.strokeRect(c.x, c.y, c.w, c.h);
+      }
+
+      function drawNPC(npc) {
+        ctx.save();
+        ctx.translate(npc.x, npc.y);
+        ctx.fillStyle = npc.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, npc.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,0.5)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = "#13121a";
+        ctx.fillRect(-6, -3, 4, 4);
+        ctx.fillRect(2, -3, 4, 4);
+
+        // Trust/fear indicators
+        ctx.fillStyle = "#70ff9e";
+        ctx.fillRect(-npc.radius, npc.radius + 5, npc.radius * 2 * npc.memory.trust, 3);
+        ctx.fillStyle = "#ff7b9a";
+        ctx.fillRect(-npc.radius, npc.radius + 10, npc.radius * 2 * npc.memory.fear, 2);
+
+        ctx.fillStyle = "rgba(255,255,255,0.95)";
+        ctx.font = "13px Trebuchet MS";
+        ctx.fillText(npc.name, -npc.radius, -npc.radius - 8);
+        ctx.restore();
+      }
+
+      function drawPlayer() {
+        const p = state.player;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+
+        if (p.abstracted) {
+          for (let i = 0; i < 8; i++) {
+            ctx.fillStyle = i % 2 ? "#06060a" : "#2d1242";
+            ctx.fillRect(rand(-22, 22), rand(-22, 22), rand(4, 14), rand(4, 14));
+          }
+          ctx.restore();
+          return;
+        }
+
+        ctx.fillStyle = "#0d0a15";
+        ctx.beginPath();
+        ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#ff2e86";
+        ctx.fillRect(-p.radius, -6, p.radius * 2, 12);
+        ctx.fillRect(-6, -p.radius, 12, p.radius * 2);
+
+        ctx.fillStyle = "#fbf7ff";
+        ctx.beginPath();
+        ctx.arc(-6, -3, 3, 0, Math.PI * 2);
+        ctx.arc(6, -3, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      function drawGlitches() {
+        for (const g of state.glitches) {
+          const pulse = 0.7 + Math.sin((state.timeMs + g.x) * 0.01) * 0.28;
+          ctx.save();
+          ctx.globalAlpha = 0.88;
+          ctx.strokeStyle = `rgba(${Math.floor(180 + pulse * 64)}, ${Math.floor(30 + pulse * 50)}, 255, 0.92)`;
+          ctx.lineWidth = 1.6 + pulse * 3;
+          ctx.beginPath();
+          ctx.arc(g.x, g.y, g.radius + pulse * 10, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      function drawAdventureMarker() {
+        if (!state.adventure || state.adventure.completed || !state.adventure.marker) return;
+        const m = state.adventure.marker;
+        ctx.save();
+        ctx.fillStyle = "#ffe899";
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawWorld() {
+        const shake = state.camera.shake;
+        const ox = shake ? rand(-shake, shake) : 0;
+        const oy = shake ? rand(-shake, shake) : 0;
+
+        ctx.save();
+        ctx.translate(-state.camera.x + ox, -state.camera.y + oy);
+
+        ctx.fillStyle = "#0d0a14";
+        ctx.fillRect(state.camera.x - 40, state.camera.y - 40, canvas.width + 80, canvas.height + 80);
+
+        for (const room of state.rooms) drawRoom(room);
+        for (const c of state.corridors) drawCorridor(c);
+        drawGlitches();
+        drawAdventureMarker();
+        for (const npc of state.npcs) drawNPC(npc);
+        drawPlayer();
+
+        // Abstract world fracture visuals
+        if (state.player.abstracted || state.sanity < 30) {
+          for (let i = 0; i < 30; i++) {
+            ctx.fillStyle = i % 2 ? "rgba(255,0,120,0.07)" : "rgba(120,200,255,0.06)";
+            ctx.fillRect(rand(state.camera.x, state.camera.x + canvas.width), rand(state.camera.y, state.camera.y + canvas.height), rand(6, 30), rand(2, 12));
+          }
+        }
+
+        ctx.restore();
+
+        // Screen layer effects
+        const mid = state.sanity <= 70 && state.sanity > 40;
+        const low = state.sanity <= 40;
+
+        if (mid || low || state.player.abstracted) {
+          ctx.save();
+          if (mid) {
+            ctx.globalAlpha = 0.06;
+            ctx.fillStyle = "#ff89d8";
+            ctx.fillRect(rand(-6, 6), rand(-4, 4), canvas.width, canvas.height);
+          }
+
+          if (low || state.player.abstracted) {
+            const slices = 7 + Math.floor((40 - state.sanity) / 7);
+            for (let i = 0; i < slices; i++) {
+              const y = rand(0, canvas.height - 22);
+              const h = rand(4, 20);
+              const shift = rand(-25, 25);
+              ctx.drawImage(canvas, 0, y, canvas.width, h, shift, y, canvas.width, h);
+            }
+            ctx.globalAlpha = 0.1;
+            ctx.fillStyle = "#2b0410";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
+
+          // Color inversion pulses at low sanity.
+          if (state.sanity < 22 && Math.random() < 0.1) {
+            ctx.globalCompositeOperation = "difference";
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
+          ctx.restore();
+        }
+      }
+
+      function drawMiniMap() {
+        miniCtx.clearRect(0, 0, miniCanvas.width, miniCanvas.height);
+        miniCtx.fillStyle = "#0c0a13";
+        miniCtx.fillRect(0, 0, miniCanvas.width, miniCanvas.height);
+
+        const sx = miniCanvas.width / WORLD.width;
+        const sy = miniCanvas.height / WORLD.height;
+
+        for (const room of state.rooms) {
+          if (!room.reachable) continue;
+          miniCtx.globalAlpha = 0.7;
+          miniCtx.fillStyle = room.color;
+          miniCtx.fillRect(room.x * sx, room.y * sy, room.w * sx, room.h * sy);
+        }
+
+        miniCtx.globalAlpha = 1;
+        for (const npc of state.npcs) {
+          miniCtx.fillStyle = npc.color;
+          miniCtx.fillRect(npc.x * sx - 1, npc.y * sy - 1, 3, 3);
+        }
+        for (const g of state.glitches) {
+          miniCtx.fillStyle = "#87b0ff";
+          miniCtx.fillRect(g.x * sx - 1, g.y * sy - 1, 3, 3);
+        }
+        miniCtx.fillStyle = "#ff2e86";
+        miniCtx.fillRect(state.player.x * sx - 2, state.player.y * sy - 2, 4, 4);
+      }
+
+      // -------- UI layer (includes false info at low sanity) --------
+      function hallucinated(value, jitterPct) {
+        const jitter = value * jitterPct * rand(-1, 1);
+        return value + jitter;
+      }
+
+      function updateUI() {
+        const falseHud = state.sanity < 32 && Math.random() < 0.16;
+
+        const sanityDisplay = falseHud ? clamp(hallucinated(state.sanity, 0.2), 0, 100) : state.sanity;
+        const driftDisplay = falseHud ? clamp(hallucinated(state.drift * 100, 0.28), 0, 100) : state.drift * 100;
+
+        ui.sanityValue.textContent = `${sanityDisplay.toFixed(1)}${state.player.abstracted ? " (ABSTRACTED)" : ""}`;
+        ui.sanityFill.style.transform = `scaleX(${clamp(sanityDisplay / 100, 0, 1)})`;
+        ui.timeValue.textContent = `${Math.floor(state.dayProgress * 100)}%`;
+        ui.driftValue.textContent = `${Math.floor(driftDisplay)}%`;
+
+        const room = roomAt(state.player.x, state.player.y);
+        ui.regionValue.textContent = room ? room.name : "between zones";
+
+        ui.relationshipSummary.textContent = state.npcs
+          .map((n) => `${n.name}: T${Math.round(n.memory.trust * 100)} F${Math.round(n.memory.fear * 100)}`)
+          .join(" • ");
+
+        ui.eventFeed.innerHTML = state.events.map((e) => `<div>• ${e.message}</div>`).join("");
+
+        updateAdventureUI();
+
+        const glitchUi = state.sanity < 40 || state.player.abstracted;
+        gameWrap.classList.toggle("ui-glitch", glitchUi);
+      }
+
+      function updateAdventureUI() {
+        if (!state.adventure) {
+          ui.adventureType.textContent = "None";
+          ui.adventureValue.textContent = "Talk to Caine for assignment.";
+          return;
+        }
+
+        ui.adventureType.textContent = state.adventure.completed ? `${state.adventure.type} (Done)` : state.adventure.type;
+        ui.adventureValue.textContent = `${state.adventure.objective} ${state.adventure.contradiction ? "| Contradiction: " + state.adventure.contradiction : ""}`;
+      }
+
+      // -------- Main loop --------
+      let lastTs = performance.now();
+      function frame(ts) {
+        const dtMs = Math.min(34, ts - lastTs);
+        const dt = dtMs / 1000;
+        lastTs = ts;
+
+        updateTime(dtMs);
+        applyRealityDrift(dt);
+        updatePlayer(dt);
+        updateNPCs(dt);
+        updateGlitches(dt);
+        doInteractions();
+        updateAdventure();
+        updateCamera(dt);
+        updateDialogue(dt);
+
+        drawWorld();
+        drawMiniMap();
+        updateUI();
+
+        if (state.timeMs - state.lastSaveMs > 9000) saveGame();
+        state.interactPressed = false;
+        requestAnimationFrame(frame);
+      }
+
+      // -------- Inputs --------
+      window.addEventListener("keydown", (e) => {
+        const key = e.key.toLowerCase();
+        if (["arrowup", "arrowdown", "arrowleft", "arrowright", "z", "enter", "escape"].includes(key)) e.preventDefault();
+
+        state.keys[key] = true;
+        if (key === "z") state.interactPressed = true;
+        if (key === "enter" && state.conversation.activeNpcId) sendChat();
+        if (key === "escape") closeChat();
+      });
+
+      window.addEventListener("keyup", (e) => {
+        state.keys[e.key.toLowerCase()] = false;
+      });
+
+      ui.sendBtn.addEventListener("click", () => sendChat());
+      ui.chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          sendChat();
+        }
+      });
+
+      ui.saveApiBtn.addEventListener("click", () => {
+        state.ai.endpoint = ui.apiEndpoint.value.trim();
+        state.ai.model = ui.apiModel.value.trim();
+        state.ai.apiKey = ui.apiKey.value.trim();
+        persistSettings();
+        ui.apiStatus.textContent = state.ai.endpoint && state.ai.model && state.ai.apiKey
+          ? "AI API settings saved. Dialogue will use API when reachable."
+          : "Using local dialogue synthesis.";
+      });
+
+      function syncSettingsUI() {
+        ui.apiEndpoint.value = state.ai.endpoint;
+        ui.apiModel.value = state.ai.model;
+        ui.apiKey.value = state.ai.apiKey;
+        ui.apiStatus.textContent = state.ai.endpoint && state.ai.model && state.ai.apiKey
+          ? "AI API configured."
+          : "Using local dialogue synthesis.";
+      }
+
+      function boot() {
+        createWorld();
+        loadSettings();
+        loadGame();
+        seedNPCs();
+        syncSettingsUI();
+
+        showDialogue("Caine", "Welcome back, Gucko! Reality drift is active, but everything is under control. Probably.");
+        pushEvent("System initialized. Drift baseline locked.");
+
+        requestAnimationFrame(frame);
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>
